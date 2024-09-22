@@ -1,0 +1,566 @@
+Computer Security in the Real World
+Butler W. Lampson1
+Microsoft
+1 blampson@microsoft.com, research.microsoft.com/lampson
+Abstract
+After thirty years of work on computer security, why are
+almost all the systems in service today extremely vulnerable to
+attack? The main reason is that security is expensive to set up
+and a nuisance to run, so people judge from experience how
+little of it they can get away with. Since there’s been little
+damage, people decide that they don’t need much security. In
+addition, setting it up is so complicated that it’s hardly ever
+done right. While we await a catastrophe, simpler setup is the
+most important step toward better security.
+In a distributed system with no central management like the
+Internet, security requires a clear story about who is trusted
+for each step in establishing it, and why. The basic tool for
+telling this story is the “speaks for” relation between principals
+that describes how authority is delegated, that is, who
+trusts whom. The idea is simple, and it explains what’s going
+on in any system I know. The many different ways of encoding
+this relation often make it hard to see the underlying order.
+1 Introduction
+People have been working on computer system security for
+at least 30 years. During this time there have been many intellectual
+successes. Notable among them are the subject/object
+access matrix model [12], access control lists [19], multilevel
+security using information flow [6, 14] and the star-property
+[3], public key cryptography [16], and cryptographic protocols
+[1]. In spite of these successes, it seems fair to say that in an
+absolute sense, the security of the hundreds of millions of deployed
+computer systems is terrible: a determined and competent
+attacker could destroy most of the information on almost
+any of these systems, or steal it from any system that is connected
+to a network. Even worse, the attacker could do this to
+millions of systems at once.
+The Internet has made computer security much more difficult
+than it used to be. In the good old days, a computer system
+had a few dozen users at most, all members of the same
+organization. It ran programs written in-house or by a few
+vendors. Information was moved from one computer to another
+by carrying tapes or disks.
+Today half a billion people all over the world are on the
+Internet, including you. This poses a large new set of problems.
+• Attack from anywhere: Any one on the Internet can
+take a poke at your system.
+• Sharing with anyone: On the other hand, you may want
+to communicate or share information with any other
+Internet user.
+• Automated infection: Your system, if compromised,
+can spread the harm to many others in a few seconds.
+• Hostile code: Code from many different sources runs
+on your system, usually without your knowledge if it
+comes from a Web page. The code might be hostile,
+but you can’t just isolate it, because you want it to
+work for you.
+• Hostile physical environment: A mobile device like a
+laptop may be lost or stolen and subject to physical attack.
+• Hostile hosts: If you own information (music or movies,
+for example), it gets downloaded to your customers’
+systems, which may try to steal it.
+All these problems cause two kinds of bad results. One is
+vandalism, motivated by personal entertainment or statusseeking:
+people write worms and viruses that infect many machines,
+either by exploiting buffer overrun bugs that allow
+arbitrary code to run, or by tricking users into running hostile
+code from e-mail attachments or web pages. These can disrupt
+servers that businesses depend on, or if they infect many enduser
+machines they can generate enough network traffic to
+overload either individual web servers or large parts of the
+Internet itself. The other bad result is that it’s much easier to
+mount an attack on a specific target (usually an organization),
+either to steal information or to corrupt data.
+On the other hand, the actual harm done by these attacks is
+limited, though growing. Once or twice a year an email virus
+such as “I love you” infects a million or two machines, and
+newspapers print extravagant estimates of the damage it does.
+Unfortunately, there is no accurate data about the cost of failures
+in computer security: most of them are never made public
+for fear of embarrassment, but when a public incident does
+occur, the security experts and vendors of antivirus software
+6.826—Principles of Computer Systems 2004
+Handout 31. Paper: Computer Security in the Real World 3
+that talk to the media have every incentive to greatly exaggerate
+its costs.
+Money talks, though. Many vendors of security products
+have learned to their regret that people may complain about
+inadequate security, but they won’t spend much money, sacrifice
+many features, or put up with much inconvenience in order
+to improve it. This strongly suggests that bad security is
+not really costing them much. Firewalls and anti-virus programs
+are the only really successful security products, and
+they are carefully designed to require no end-user setup and to
+interfere very little with daily life.
+The experience of the last few years confirms this analysis.
+Virus attacks have increased, and people are now more likely
+to buy a firewall and antivirus software, and to install patches
+that fix security flaws. Vendors like Microsoft are making
+their systems more secure, at some cost in backward compatibility
+and user convenience. But the changes have not been
+dramatic.
+Many people have suggested that the PC monoculture
+makes security problems worse and that more diversity would
+improve security, but this is too simple. It’s true that vandals
+can get more impressive results when most systems have the
+same flaws. On the other hand, if an organization installs several
+different systems that all have access to the same critical
+data, as they probably will, then a targeted attack only needs to
+find a flaw in one of them in order to succeed.
+Of course, computer security is not just about computer
+systems. Like any security, it is only as strong as its weakest
+link, and the links include the people and the physical security
+of the system. Very often the easiest way to break into a system
+is to bribe an insider. This short paper, however, is limited
+to computer systems. It does not consider physical or human
+security. It also does not consider how to prevent buffer overruns.
+You might think from the literature that buffer overruns
+are the main problem in computer security, and of course it’s
+important to eliminate them, especially in privileged code, but
+I hope to convince you that they are only a small part of the
+problem.
+1.1 What is security?
+What do we want from secure computer systems? Here is a
+reasonable goal:
+Computers are as secure as real world systems, and people
+believe it.
+Most real world systems are not very secure by the absolute
+standard suggested above. It’s easy to break into someone’s
+house. In fact, in many places people don’t even bother to lock
+their houses, although in Manhattan they may use two or three
+locks on the front door. It’s fairly easy to steal something from
+a store. You need very little technology to forge a credit card,
+and it’s quite safe to use a forged card at least a few times.
+Why do people live with such poor security in real world
+systems? The reason is that real world security is not about
+perfect defenses against determined attackers. Instead, it’s
+about
+• value,
+• locks, and
+• punishment.
+The bad guys balances the value of what they gain against the
+risk of punishment, which is the cost of punishment times the
+probability of getting punished. The main thing that makes
+real world systems sufficiently secure is that bad guys who do
+break in are caught and punished often enough to make a life
+of crime unattractive. The purpose of locks is not to provide
+absolute security, but to prevent casual intrusion by raising the
+threshold for a break-in.
+Well, what’s wrong with perfect defenses? The answer is
+simple: they cost too much. There is a good way to protect
+personal belongings against determined attackers: put them in
+a safe deposit box. After 100 years of experience, banks have
+learned how to use steel and concrete, time locks, alarms, and
+multiple keys to make these boxes quite secure. But they are
+both expensive and inconvenient. As a result, people use them
+only for things that are seldom needed and either expensive or
+hard to replace.
+Practical security balances the cost of protection and the
+risk of loss, which is the cost of recovering from a loss times
+its probability. Usually the probability is fairly small (because
+the risk of punishment is high enough), and therefore the risk
+of loss is also small. When the risk is less than the cost of recovering,
+it’s better to accept it as a cost of doing business (or
+a cost of daily living) than to pay for better security. People
+and credit card companies make these decisions every day.
+With computers, on the other hand, security is only a matter
+of software, which is cheap to manufacture, never wears
+out, and can’t be attacked with drills or explosives. This
+makes it easy to drift into thinking that computer security can
+be perfect, or nearly so. The fact that work on computer security
+has been dominated by the needs of national security has
+made this problem worse. In this context the stakes are much
+higher and there are no police or courts available to punish
+attackers, so it’s more important not to make mistakes. Furthermore,
+computer security has been regarded as an offshoot
+of communication security, which is based on cryptography.
+Since cryptography can be nearly perfect, it’s natural to think
+that computer security can be as well.
+What’s wrong with this reasoning? It ignores two critical
+facts:
+• Secure systems are complicated, hence imperfect.
+• Security gets in the way of other things you want.
+Software is complicated, and it’s essentially impossible to
+make it perfect. Even worse, security has to be set up, by establishing
+user accounts and passwords, access control lists on
+resources, and trust relationships between organizations. In a
+6.826—Principles of Computer Systems 2004
+Handout 31. Paper: Computer Security in the Real World 4
+world of legacy hardware and software, networked computers,
+mobile code, and constantly changing relationships between
+organizations, setup is complicated. And it’s easy to think up
+scenarios in which you want precise control over who can do
+what. Features put in to address such scenarios make setup
+even more complicated.
+Security gets in the way of other things you want. For
+software developers, security interferes with features and with
+time to market. This leads to such things as a widely used protocol
+for secure TCP/IP connections that use the same key for
+every session as long as the user’s password stays the same
+[22], or an endless stream of buffer-overrun errors in programs
+that are normally run with administrative privileges, each one
+making it possible for an attacker to take control of the system.
+For users and administrators, security interferes with getting
+work done conveniently, or in some cases at all. This is
+more important, since there are lot more users than developers.
+Security setup also takes time, and it contributes nothing to
+useful output. Furthermore, if the setup is too permissive no
+one will notice unless there’s an audit or an attack. This leads
+to such things as users whose password is their first name, or a
+large company in which more than half of the installed database
+servers have a blank administrator password [10], or public
+access to databases of credit card numbers [24, 25], or email
+clients that run attachments containing arbitrary code
+with the user’s privileges [4].
+1.2 Real security?
+The end result should not be surprising. We don’t have
+“real” security that guarantees to stop bad things from happening,
+and the main reason is that people don’t buy it. They
+don’t buy it because the danger is small, and because security
+is a pain.
+• Since the danger is small, people prefer to buy features.
+A secure system has fewer features because it
+has to be implemented correctly. This means that it
+takes more time to build, so naturally it lacks the latest
+features.
+• Security is a pain because it stops you from doing
+things, and you have to do work to authenticate yourself
+and to set it up.
+A secondary reason we don’t have “real” security is that
+systems are complicated, and therefore both the code and the
+setup have bugs that an attacker can exploit. This is the reason
+that gets all the attention, but it is not the heart of the problem.
+Will things get better? Certainly when security flaws cause
+serious damage, buyers change their priorities and systems
+become more secure, but unless there’s a catastrophe, these
+changes are slow. Short of that, the best we can do is to drastically
+simplify the parts of systems that have to do with security:
+• Users need to have at most three categories for authorization:
+me, my group or company, and the world.
+• Administrators need to write policies that control security
+settings in a uniform way, since they can’t deal effectively
+with lots of individual cases.
+• Everyone needs a uniform way to do end-to-end authentication
+and authorization across the entire Internet.
+Since people would rather have features than security, most of
+these things are unlikely to happen very quickly.
+On the other hand, don’t forget that in the real world security
+depends more on police than on locks, so detecting attacks,
+recovering from them, and punishing the bad guys are
+more important than prevention.
+Section 2.3 discusses the first two points in more detail,
+and section 3 explores the third. For a fuller account of real
+world security, see Bruce Schneier’s recent book [21].
+1.3 Outline
+The next section gives an overview of computer security,
+highlighting matters that are important in practice. Section 3
+explains how to do Internet-wide end-to-end authentication
+and authorization.
+2 Overview of computer security
+Like any computer system, a secure system can be studied
+under three headings:
+Common name Meaning Security jargon
+Specification: What is it supposed to
+do?
+Policy
+Implementation:
+How does it do it? Mechanism
+Correctness: Does it really work? Assurance
+In security it’s customary to give new names to familiar concepts;
+they appear in the last column.
+Assurance, or correctness, is especially important for security
+because the system must withstand malicious attacks, not
+just ordinary use. Deployed systems with many happy users
+often have thousands of bugs. This happens because the system
+enters very few of its possible states during ordinary use.
+Attackers, of course, try to drive the system into states that
+they can exploit, and since there are so many bugs, this is usually
+quite easy.
+This section briefly describes the standard ways of thinking
+about policy and mechanism. It then discusses assurance in
+more detail, since this is where security failures occur.
+6.826—Principles of Computer Systems 2004
+Handout 31. Paper: Computer Security in the Real World 5
+2.1 Policy: Specifying security
+Organizations and people that use computers can describe
+their needs for information security under four major headings
+[17]:
+• Secrecy: controlling who gets to read information.
+• Integrity: controlling how information changes or resources
+are used.
+• Availability: providing prompt access to information
+and resources.
+• Accountability: knowing who has had access to information
+or resources.
+They are usually trying to protect some resource against
+danger from an attacker. The resource is usually either information
+or money. The most important dangers are:
+Vandalism or sabotage that
+—damages information
+—disrupts service
+integrity
+availability
+Theft
+—of money integrity
+—of information secrecy
+Loss of privacy secrecy
+Each user of computers must decide what security means to
+them. A description of the user’s needs for security is called a
+security policy.
+Most policies include elements from all four categories, but
+the emphasis varies widely. Policies for computer systems are
+usually derived from policies for real world security. The military
+is most concerned with secrecy, ordinary businesses with
+integrity and accountability, telephone companies with availability.
+Obviously integrity is also important for national security:
+an intruder should not be able to change the sailing orders
+for a carrier, and certainly not to cause the firing of a missile
+or the arming of a nuclear weapon. And secrecy is important
+in commercial applications: financial and personnel information
+must not be disclosed to outsiders. Nonetheless, the difference
+in emphasis remains [5].
+A security policy has both a positive and negative aspect. It
+might say, “Company confidential information should be accessible
+only to properly authorized employees”. This means
+two things: properly authorized employees should have access
+to the information, and other people should not have access.
+When people talk about security, the emphasis is usually on
+the negative aspect: keeping out the bad guy. In practice, however,
+the positive aspect gets more attention, since too little
+access keeps people from getting their work done, which
+draws attention immediately, but too much access goes undetected
+until there’s a security audit or an obvious attack,2
+2 The modifier “obvious” is important; an undetected attack is much more
+dangerous, since the attacker can repeat it. Even worse, the victims won’t
+know that they should take steps to recover, such as changing compromised
+plans or calling the police.
+which hardly ever happens. This distinction between talk and
+practice is pervasive in security.
+This paper deals mostly with integrity, treating secrecy as a
+dual problem. It has little to say about availability, which is a
+matter of keeping systems from crashing and allocating resources
+both fairly and cheaply. Most attacks on availability
+work by overloading systems that do too much work in deciding
+whether to accept a request.
+2.2 Mechanism: Implementing security
+Of course, one man’s policy is another man’s mechanism.
+The informal access policy in the previous paragraph must be
+elaborated considerably before it can be enforced by a computer
+system. Both the set of confidential information and the
+set of properly authorized employees must be described precisely.
+We can view these descriptions as more detailed policy,
+or as implementation of the informal policy.
+In fact, the implementation of security has two parts: the
+code and the setup or configuration. The code is the programs
+that security depends on. The setup is all the data that controls
+the operations of these programs: folder structure, access control
+lists, group memberships, user passwords or encryption
+keys, etc.
+The job of a security implementation is to defend against
+vulnerabilities. These take three main forms:
+1) Bad (buggy or hostile) programs.
+2) Bad (careless or hostile) agents, either programs or people,
+giving bad instructions to good but gullible programs.
+3) Bad agents tapping or spoofing communications.
+Case (2) can be cascaded through several levels of gullible
+agents. Clearly agents that might get instructions from bad
+agents must be prudent, or even paranoid, rather than gullible.
+Broadly speaking, there are five defensive strategies:
+1) Coarse: Isolate—keep everybody out. It provides the best
+security, but it keeps you from using information or services
+from others, and from providing them to others.
+This is impractical for all but a few applications.
+2) Medium: Exclude—keep the bad guys out. It’s all right
+for programs inside this defense to be gullible. Code signing
+and firewalls do this.
+3) Fine: Restrict—Let the bad guys in, but keep them from
+doing damage. Sandboxing does this, whether the traditional
+kind provided by an operating system process, or
+the modern kind in a Java virtual machine. Sandboxing
+typically involves access control on resources to define
+the holes in the sandbox. Programs accessible from the
+sandbox must be paranoid; it’s hard to get this right.
+4) Recover—Undo the damage. Backup systems and restore
+points are examples. This doesn’t help with secrecy, but it
+helps a lot with integrity and availability.
+5) Punish—Catch the bad guys and prosecute them. Auditing
+and police do this.
+6.826—Principles of Computer Systems 2004
+Handout 31. Paper: Computer Security in the Real World 6
+The well-known access control model shown in figure 1
+provides the framework for these strategies. In this model, a
+guard3 controls the access of requests for service to valued
+resources, which are usually encapsulated in objects. The
+guard’s job is to decide whether the source of the request,
+called a principal, is allowed to do the operation on the object.
+To decide, it uses two kinds of information: authentication
+information from the left, which identifies the principal who
+made the request, and authorization information from the
+right, which says who is allowed to do what to the object. As
+we shall see in section 3, there are many ways to make this
+division. The reason for separating the guard from the object is
+to keep it simple.
+Of course security still depends on the object to implement
+its methods correctly. For instance, if a file’s read method
+changes its data, or the write method fails to debit the quota,
+or either one touches data in other files, the system is insecure
+in spite of the guard.
+Another model is sometimes used when secrecy in the face
+of bad programs is a primary concern: the information flow
+control model shown in figure 2 [6, 14]. This is roughly a dual
+of the access control model, in which the guard decides
+whether information can flow to a principal.
+3 a “reference monitor” in the jargon
+In either model, there are three basic mechanisms for implementing
+security. Together, they form the gold standard for
+security (since they all begin with Au):
+• Authenticating principals, answering the question
+“Who said that?” or “Who is getting that information?”.
+Usually principals are people, but they may
+also be groups, machines, or programs.
+• Authorizing access, answering the question “Who is
+trusted to do which operations on this object?”.
+• Auditing the decisions of the guard, so that later it’s
+possible to figure out what happened and why.
+2.3 Assurance: Making security work
+The unavoidable price of reliability is simplicity. (Hoare)
+What does it mean to make security work? The answer is
+based on the idea of a trusted computing base (TCB), the collection
+of hardware, software, and setup information on which
+the security of a system depends. Some examples may help to
+clarify this idea.
+• If the security policy for the machines on a LAN is just
+that they can access the Web but no other Internet services,
+and no inward access is allowed, then the TCB
+is just the firewall (hardware, software, and setup) that
+Reference
+monitor
+Object
+Resource
+Principal
+Guard
+Authentication
+Source
+Authorization
+Request
+Audit
+Log
+Do
+operation
+Figure 1: The access control model
+Reference
+monitor
+Principal
+Sink
+Information
+Source Guard Transmit
+Audit
+Log
+Send
+Figure 2: The information flow model
+6.826—Principles of Computer Systems 2004
+Handout 31. Paper: Computer Security in the Real World 7
+allows outgoing port 80 TCP connections, but no other
+traffic.4 If the policy also says that no software
+downloaded from the Internet should run, then the
+TCB also includes the browser code and settings that
+disable Java and other software downloads.5
+• If the security policy for a Unix system is that users
+can read system directories, and read and write their
+home directories, then the TCB is roughly the hardware,
+the Unix kernel, and any program that can write
+a system directory (including any that runs as superuser).
+This is quite a lot of software. It also includes
+/etc/passwd and the permissions on system and
+home directories.
+The idea of a TCB is closely related to the end-to-end principle
+[20]—just as reliability depends only on the ends, security
+depends only on the TCB. In both cases, performance and
+availability isn’t guaranteed.
+In general, it’s not easy to figure out what is in the TCB for
+a given security policy. Even writing the specs for the components
+is hard, as the examples may suggest.
+For security to work perfectly, the specs for all the TCB
+components must be strong enough to enforce the policy, and
+each component has to satisfy its spec. This level of assurance
+has seldom been attempted. Essentially always, people settle
+for something much weaker and accept that both the specs and
+the implementation will be flawed. Either way, it should be
+clear that a smaller TCB is better.
+A good way to make defects in the TCB less harmful is to
+use defense in depth, redundant mechanisms for security. For
+example, a system might include:
+• Network level security, using a firewall.
+• Operating system security, using sandboxing to isolate
+programs. This can be done by a base OS like Windows
+or Unix, or by a higher-level OS like a Java VM.
+• Application level security that checks authorization directly.
+The idea is that it will be hard for an attacker to simultaneously
+exploit flaws in all the levels. Defense in depth offers no
+guarantees, but it does seem to help in practice.
+Most discussions of assurance focus on the software (and
+occasionally the hardware), as I have done so far. But the
+other important component of the TCB is all the setup or configuration
+information, the knobs and switches that tell the
+software what to do. In most systems deployed today there is a
+lot of this information. It includes:
+1) What software is installed with system privileges, and
+perhaps what software is installed that will run with the
+user’s privileges. “Software” includes not just binaries,
+but anything executable, such as shell scripts or macros.
+4 This assumes that there are no connections to the Internet except through the
+firewall.
+5 This assumes that the LAN machines don’t have any other software that
+might do downloads from the Internet. Enforcing this would greatly expand
+the TCB in any standard operating system known to me.
+2) The database of users, passwords (or other authentication
+data), privileges, and group memberships. Often services
+like SQL servers have their own user database.
+3) Network information such as lists of trusted machines.
+4) The access controls on all the system resources: files,
+services (especially those that respond to requests from
+the network), devices, etc.
+5) Doubtless many other things that I haven’t thought of.
+Although setup is much simpler than code, it is still complicated,
+it is usually done by less skilled people, and while
+code is written once, setup is different for every installation.
+So we should expect that it’s usually wrong, and many studies
+confirm this expectation. The problem is made worse by the
+fact that setup must be based on the documentation for the
+software, which is usually voluminous, obscure, and incomplete
+at best.6 See [2] for an eye-opening description of these
+effects in the context of financial cryptosystems, [18] for an
+account of them in the military, and [21] for many other examples.
+The only solution to this problem is to make security setup
+much simpler, both for administrators and for users. It’s not
+practical to do this by changing the base operating system,
+both because changes there are hard to carry out, and because
+some customers will insist on the fine-grained control it provides.
+Instead, take advantage of this fine-grained control by
+using it as a “machine language”. Define a simple model for
+security with a small number of settings, and then compile
+these into the innumerable knobs and switches of the base
+system.
+What form should this model take?
+Users need a very simple story, with about three levels of
+security: me, my group or company, and the world, with progressively
+less authority. Browsers classify the network in this
+way today. The corresponding private, shared, and public data
+should be in three parts of the file system: my documents,
+shared documents, and public documents. This combines the
+security of data with where it is stored, just as the physical
+world does with its public bulletin boards, private houses,
+locked file cabinets, and safe deposit boxes. It’s familiar,
+there’s less to set up, and it’s obvious what the security of
+each item is.
+Everything else should be handled by security policies that
+vendors or administrators provide. In particular, policies
+should classify all programs as trusted or untrusted based on
+how they are signed, unless the user overrides them explicitly.
+Untrusted programs can be rejected or sandboxed; if they are
+sandboxed, they need to run in a completely separate world,
+with separate global state such as user and temporary folders,
+history, web caches, etc. There should be no communication
+with the trusted world except when the user explicitly copies
+6 Of course code is also based on documentation for the programming language
+and libraries invoked, but this is usually much better done.
